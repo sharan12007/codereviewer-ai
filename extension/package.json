@@ -1,0 +1,87 @@
+{
+  "name": "ai-code-reviewer",
+  "displayName": "AI Code Reviewer",
+  "description": "AI-powered code review in your editor",
+  "version": "0.1.0",
+  "publisher": "yourname",
+  "engines": {
+    "vscode": "^1.89.0"
+  },
+
+  "activationEvents": [
+    "onCommand:ai-reviewer.reviewFile",
+    "onCommand:ai-reviewer.signIn",
+    "onCommand:ai-reviewer.signOut",
+    "onCommand:ai-reviewer.clearComments",
+    "onLanguage:python"
+  ],
+
+  "main": "./out/extension.js",
+
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-reviewer.reviewFile",
+        "title": "AI Reviewer: Review Current File"
+      },
+      {
+        "command": "ai-reviewer.signIn",
+        "title": "AI Reviewer: Sign In with GitHub"
+      },
+      {
+        "command": "ai-reviewer.signOut",
+        "title": "AI Reviewer: Sign Out"
+      },
+      {
+        "command": "ai-reviewer.clearComments",
+        "title": "AI Reviewer: Clear Comments"
+      }
+    ],
+
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ai-reviewer",
+          "title": "AI Reviewer",
+          "icon": "$(shield)"
+        }
+      ]
+    },
+
+    "views": {
+      "ai-reviewer": [
+        {
+          "id": "ai-reviewer.commentsView",
+          "name": "Review Comments",
+          "type": "tree"
+        }
+      ]
+    },
+
+    "configuration": {
+      "properties": {
+        "aiReviewer.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "URL of the AI Reviewer backend server"
+        }
+      }
+    }
+  },
+
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+
+  "devDependencies": {
+    "@types/vscode": "^1.89.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.5"
+  },
+
+  "dependencies": {
+    "axios": "^1.7.2"
+  }
+}

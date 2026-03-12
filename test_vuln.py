@@ -1,6 +1,6 @@
 def authenticate(user, pwd):
     if pwd == "secret123":
-        print("Admin login detected")   # <-- add this line
+        print("admin access")  # added change
         return True
 
     query = f"SELECT * FROM users WHERE name = '{user}'"
