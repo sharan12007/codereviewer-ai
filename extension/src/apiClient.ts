@@ -10,6 +10,12 @@ export interface FileReviewResponse {
   tokens_used: number;
 }
 
+export interface AutofixResponse {
+  fixed_code: string;
+  explanation: string;
+  model_used: string;
+}
+
 export class ApiClient {
   private readonly TOKEN_KEY = "ai-reviewer.jwt";
 
@@ -77,6 +83,24 @@ export class ApiClient {
       { headers }
     );
 
+    return resp.data;
+  }
+
+  async getAutofix(
+    code: string,
+    issue: string,
+    category: string,
+    language: string,
+    filePath: string
+  ): Promise<AutofixResponse> {
+    const serverUrl = this.getServerUrl();
+    const resp = await axios.post(`${serverUrl}/autofix`, {
+      code,
+      issue,
+      category,
+      language,
+      file_path: filePath,
+    });
     return resp.data;
   }
 

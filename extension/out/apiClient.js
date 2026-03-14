@@ -90,6 +90,17 @@ class ApiClient {
         }, { headers });
         return resp.data;
     }
+    async getAutofix(code, issue, category, language, filePath) {
+        const serverUrl = this.getServerUrl();
+        const resp = await axios_1.default.post(`${serverUrl}/autofix`, {
+            code,
+            issue,
+            category,
+            language,
+            file_path: filePath,
+        });
+        return resp.data;
+    }
     async getReviews() {
         const serverUrl = this.getServerUrl();
         const token = await this.getToken();

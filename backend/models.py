@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from sqlmodel import Field, SQLModel
+from pydantic import ConfigDict
 
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -32,6 +33,8 @@ class PullRequest(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class Review(SQLModel, table=True):
+    model_config = ConfigDict(protected_namespaces=())
+
     id: Optional[int] = Field(default=None, primary_key=True)
     pr_id: int = Field(foreign_key='pullrequest.id', index=True)
     model_used: str

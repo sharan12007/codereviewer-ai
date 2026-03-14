@@ -38,26 +38,33 @@ async def run_pr_review(job: dict) -> None:
         # Step 3 — fetch PR files
         files = fetch_pr_files(repo_full_name, pr_number, installation_token)
         if not files:
-            logger.info(f"No reviewable files for PR {pr_number}")
-            _finalize(pr_id, 'completed', start_time, [], "No reviewable files found.", None, repo_full_name, pr_number, installation_token)
+            logger.info(f"No reviewable files for PR #{pr_number}")
+            await _finalize(pr_id, 'completed', start_time, [], "No reviewable files found.",
+                            None, repo_full_name, pr_number, installation_token)
             return
 
         # Step 4 — parse chunks
         chunks = parse_diff_to_chunks(files)
         if not chunks:
-            logger.info(f"No chunks for PR {pr_number}")
-            _finalize(pr_id, 'completed', start_time, [], "No reviewable changes found.", None, repo_full_name, pr_number, installation_token)
+            logger.info(f"No chunks for PR #{pr_number}")
+            await _finalize(pr_id, 'completed', start_time, [], "No reviewable changes found.",
+                            None, repo_full_name, pr_number, installation_token)
             return
+
+        logger.info(f"PR #{pr_number}: {len(chunks)} chunks to review")
 
         # Step 5 — call LLM for each chunk
         llm = LLMClient()
         all_raw_comments = []
         summary = ''
-        total_tokens = 0
 
         for chunk in chunks:
             user_prompt = build_prompt(chunk)
-            result = await llm.review(SYSTEM_PROMPT, user_prompt)
+            try:
+                result = await llm.review(SYSTEM_PROMPT, user_prompt)
+            except Exception as e:
+                logger.error(f"LLM failed for chunk {chunk.file_path}: {e}")
+                continue
 
             chunk_comments = result.get('comments', [])
             for c in chunk_comments:
@@ -67,8 +74,11 @@ async def run_pr_review(job: dict) -> None:
             if result.get('summary'):
                 summary = result['summary']
 
+        logger.info(f"PR #{pr_number}: {len(all_raw_comments)} raw comments before filtering")
+
         # Step 6+7 — filter comments
         filtered = filter_comments(all_raw_comments)
+        logger.info(f"PR #{pr_number}: {len(filtered)} comments after filtering")
 
         # Step 8 — post to GitHub
         github_review_id = None
@@ -83,10 +93,10 @@ async def run_pr_review(job: dict) -> None:
         except Exception as e:
             logger.error(f"Failed to post GitHub review: {e}")
 
-        # Step 9+10+11 — save and finalize
-        _finalize(pr_id, 'completed', start_time, filtered, summary,
-                  github_review_id, repo_full_name, pr_number,
-                  installation_token, llm.get_model_name(), total_tokens)
+        # Step 9-11 — save and finalize
+        await _finalize(pr_id, 'completed', start_time, filtered, summary,
+                        github_review_id, repo_full_name, pr_number,
+                        installation_token, llm.get_model_name())
 
     except Exception as e:
         logger.error(f"run_pr_review failed for PR {pr_id}: {e}", exc_info=True)
@@ -100,13 +110,14 @@ async def run_pr_review(job: dict) -> None:
         await broadcast({'type': 'error', 'pr_id': pr_id, 'message': str(e)})
 
 
-def _finalize(pr_id, status, start_time, comments, summary,
-              github_review_id, repo_full_name, pr_number,
-              installation_token, model_used='gemini-1.5-flash', tokens_used=0):
+async def _finalize(pr_id, status, start_time, comments, summary,
+                    github_review_id, repo_full_name, pr_number,
+                    installation_token, model_used='llama-3.1-8b-instant',
+                    tokens_used=0):
+    import asyncio
     duration_ms = int((time.time() - start_time) * 1000)
 
     with Session(engine) as session:
-        # Save Review row
         review = Review(
             pr_id=pr_id,
             model_used=model_used,
@@ -118,7 +129,6 @@ def _finalize(pr_id, status, start_time, comments, summary,
         session.add(review)
         session.flush()
 
-        # Save ReviewComment rows
         for c in comments:
             rc = ReviewComment(
                 review_id=review.id,
@@ -131,7 +141,6 @@ def _finalize(pr_id, status, start_time, comments, summary,
             )
             session.add(rc)
 
-        # Update PR status
         pr = session.get(PullRequest, pr_id)
         if pr:
             pr.status = status
@@ -141,7 +150,6 @@ def _finalize(pr_id, status, start_time, comments, summary,
         session.commit()
         review_id = review.id
 
-    import asyncio
     asyncio.create_task(broadcast({
         'type': 'completed',
         'pr_id': pr_id,

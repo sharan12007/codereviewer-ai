@@ -8,18 +8,25 @@ review_queue: asyncio.Queue = asyncio.Queue(maxsize=100)
 
 
 async def worker_loop():
-    logger.info("Worker loop started")
+    logger.info("=== WORKER LOOP STARTED ===")
     while True:
-        job = await review_queue.get()
         try:
-            logger.info(f"Processing job: PR #{job.get('pr_number')} in {job.get('repo_full_name')}")
-            await run_pr_review(job)
+            logger.info("Worker waiting for job...")
+            job = await review_queue.get()
+            logger.info(f"=== JOB RECEIVED: PR #{job.get('pr_number')} in {job.get('repo_full_name')} ===")
+            try:
+                await run_pr_review(job)
+            except Exception as e:
+                logger.error(f"Worker job error: {e}", exc_info=True)
+            finally:
+                review_queue.task_done()
+                logger.info("Job done")
         except Exception as e:
-            logger.error(f"Worker error: {e}", exc_info=True)
-        finally:
-            review_queue.task_done()
+            logger.error(f"Worker loop error: {e}", exc_info=True)
+            await asyncio.sleep(1)
 
 
 async def start_worker():
+    logger.info("Starting worker...")
     asyncio.create_task(worker_loop())
-    logger.info("Worker started")
+    logger.info("Worker task created")

@@ -49,30 +49,30 @@ async function reviewCurrentFile(apiClient, diagnostics, commentsProvider) {
     const filePath = document.fileName;
     const content = document.getText();
     const languageId = document.languageId;
-    // Check server health first
     const healthy = await apiClient.checkHealth();
     if (!healthy) {
-        vscode.window.showErrorMessage("AI Reviewer server is not running. Start it with: uvicorn main:app --reload");
+        vscode.window.showErrorMessage("AI Reviewer backend is not running.\nStart it with: uvicorn main:app --reload");
         return;
     }
+    commentsProvider.showPanel();
     await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
-        title: "AI Reviewer: Reviewing file...",
+        title: "AI Reviewer: Analyzing code...",
         cancellable: false,
     }, async () => {
         try {
             const result = await apiClient.reviewFile(filePath, content, languageId);
-            const comments = result.comments.map((c) => ({
+            const comments = (result.comments || []).map((c) => ({
                 ...c,
                 line: c.line || c.position || 1,
             }));
             (0, diagnostics_1.applyDiagnostics)(diagnostics, document.uri, comments);
-            commentsProvider.setComments(document.fileName.split(/[\\/]/).pop() || filePath, comments, result.summary, result.model_used);
+            commentsProvider.setComments(filePath, comments, result.summary || "", result.model_used || "unknown");
             if (comments.length === 0) {
-                vscode.window.showInformationMessage("AI Reviewer: LGTM! No issues found.");
+                vscode.window.showInformationMessage("AI Reviewer: ✅ LGTM — No issues found.");
             }
             else {
-                vscode.window.showInformationMessage(`AI Reviewer: Found ${comments.length} issue${comments.length !== 1 ? "s" : ""}. Check Problems panel.`);
+                vscode.window.showInformationMessage(`AI Reviewer: Found ${comments.length} issue${comments.length !== 1 ? "s" : ""}. Check the review panel.`);
             }
         }
         catch (err) {
@@ -85,41 +85,32 @@ function activate(context) {
     const apiClient = new apiClient_1.ApiClient(context);
     const diagnostics = vscode.languages.createDiagnosticCollection("ai-reviewer");
     const commentsProvider = new reviewPanel_1.CommentsTreeProvider();
-    // Register tree view
-    vscode.window.registerTreeDataProvider("ai-reviewer.commentsView", commentsProvider);
-    // Register URI handler for OAuth callback
-    vscode.window.registerUriHandler({
+    commentsProvider.setContext(context);
+    context.subscriptions.push(diagnostics, vscode.window.registerTreeDataProvider("ai-reviewer.commentsView", commentsProvider), vscode.window.registerUriHandler({
         handleUri(uri) {
             const token = new URLSearchParams(uri.query).get("token");
             if (token) {
-                apiClient.setToken(token).then(() => {
-                    vscode.window.showInformationMessage("AI Reviewer: Signed in successfully!");
+                void apiClient.setToken(token).then(() => {
+                    vscode.window.showInformationMessage("AI Reviewer: Signed in successfully.");
                 });
             }
         },
-    });
-    // Register go-to-line command (used by tree item click)
-    context.subscriptions.push(vscode.commands.registerCommand("ai-reviewer.goToLine", async (filePath, line) => {
+    }), vscode.commands.registerCommand("ai-reviewer.goToLine", async (filePath, line) => {
         try {
             const uri = vscode.Uri.file(filePath);
             const doc = await vscode.workspace.openTextDocument(uri);
-            const editor = await vscode.window.showTextDocument(doc);
+            const editor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
             const lineIndex = Math.max(0, line - 1);
             const range = editor.document.lineAt(lineIndex).range;
             editor.selection = new vscode.Selection(range.start, range.end);
             editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
         }
-        catch {
-            // file might not be local
-        }
-    }));
-    // Register all commands
-    context.subscriptions.push(vscode.commands.registerCommand("ai-reviewer.reviewFile", () => reviewCurrentFile(apiClient, diagnostics, commentsProvider)), vscode.commands.registerCommand("ai-reviewer.signIn", () => apiClient.signIn()), vscode.commands.registerCommand("ai-reviewer.signOut", () => apiClient.signOut()), vscode.commands.registerCommand("ai-reviewer.clearComments", () => {
+        catch { }
+    }), vscode.commands.registerCommand("ai-reviewer.reviewFile", () => reviewCurrentFile(apiClient, diagnostics, commentsProvider)), vscode.commands.registerCommand("ai-reviewer.signIn", () => apiClient.signIn()), vscode.commands.registerCommand("ai-reviewer.signOut", () => apiClient.signOut()), vscode.commands.registerCommand("ai-reviewer.clearComments", () => {
         diagnostics.clear();
         commentsProvider.clear();
         vscode.window.showInformationMessage("AI Reviewer: Comments cleared.");
-    }), diagnostics);
-    // Show welcome message
+    }), vscode.commands.registerCommand("ai-reviewer.showPanel", () => commentsProvider.showPanel()));
     vscode.window.showInformationMessage("AI Reviewer is active. Open a file and run 'AI Reviewer: Review Current File'.");
 }
 function deactivate() { }
