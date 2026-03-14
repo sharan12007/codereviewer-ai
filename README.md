@@ -874,9 +874,7 @@ Academic Year 2024–2025
 |------|-------------|
 | G Sharan Eshwar | 2403717620521051 |
 | S Praanesh | 2403717620521031 |
-| Prathap M | 2403717620521035 |
-| R Prasanna Adithyaa | 2403717620521034 |
-| G P Harish | 2403717620521015 |
+
 
 ### MVP Checklist (All 10 items passing ✅)
 
