@@ -900,8 +900,7 @@ Academic Year 2024–2025
 ```
 MIT License
 
-Copyright (c) 2025 G Sharan Eshwar, S Praanesh, Prathap M,
-                   R Prasanna Adithyaa, G P Harish
+Copyright (c) 2025 G Sharan Eshwar, S Praanesh
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
