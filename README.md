@@ -923,6 +923,6 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 **Built with ❤️ at Coimbatore Institute of Technology**
 
-[🌐 Dashboard](http://localhost:8000/dashboard) · [📡 Health Check](http://localhost:8000/health) · [📖 API Docs](http://localhost:8000/docs)
+
 
 </div>
